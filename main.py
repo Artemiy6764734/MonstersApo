@@ -1,5 +1,6 @@
 from pygame import *
 from random import randint
+import math
 from time import time as timer
 
 
@@ -35,21 +36,21 @@ lvl3 = 50
 rel_time = False
 num_fire = 0
 life = 3
-
-
-
+score = 0
 
 
 class GameSprite(sprite.Sprite):
-    def __init__(self, player_image, player_x, player_y,  # один рядок
-                 size_x, size_y, player_speed):
-        sprite.Sprite.__init__(self)
-        self.image = transform.scale(  # один рядок
-            image.load(player_image), (size_x, size_y))
+    def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
+        super().__init__()
+        if isinstance(player_image, str):
+            self.image = transform.scale(image.load(player_image), (size_x, size_y))
+        else:
+            self.image = player_image  # Якщо передали Surface, а не ім'я файла
         self.speed = player_speed
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
+
 
     def reset(self):
         window.blit(self.image, (self.rect.x, self.rect.y))
@@ -57,18 +58,49 @@ class GameSprite(sprite.Sprite):
 
 class Player(GameSprite):
     def update(self):
-        pass
+        # Отримуємо позицію миші
+        mouse_x, mouse_y = mouse.get_pos()
+        # Розраховуємо кут між туреллю і мишкою
+        dx = mouse_x - self.rect.centerx
+        dy = mouse_y - self.rect.centery
+        angle = math.degrees(math.atan2(-dy, dx))  # обертаємо по осі Y
 
-    def fire(self):
-        bullet = Bullet(img_bullet, self.rect.centerx, self.rect.top, 15, 20, -15)
+        # Повертаємо зображення
+        self.image = transform.rotate(
+            transform.scale(image.load(img_tur1), (100, 100)),
+            angle
+        )
+        self.rect = self.image.get_rect(center=self.rect.center)  # Щоб центр не зміщувався
+
+    def fire(self, speed):
+        mouse_x, mouse_y = mouse.get_pos()
+        dx = mouse_x - self.rect.centerx - 5
+        dy = mouse_y - self.rect.centery - 5
+        angle = math.atan2(dy, dx)
+
+        bullet_dx = speed * math.cos(angle)
+        bullet_dy = speed * math.sin(angle)
+
+        # створюємо одразу готову повернуту картинку
+        bullet_img = transform.rotate(
+            transform.scale(image.load(img_bullet), (30, 10)),
+            -math.degrees(angle)  # обертання треба зробити в градусах
+        )
+
+        bullet = Bullet(bullet_img, self.rect.centerx - 5, self.rect.centery - 5, 30, 10, 0)
+        bullet.speed_x = bullet_dx
+        bullet.speed_y = bullet_dy
         bullets.add(bullet)
+        fire_sound.play()
 
 
 class Bullet(GameSprite):
     def update(self):
-        self.rect.y += self.speed
-        if self.rect.y < 0:
+        self.rect.x += self.speed_x
+        self.rect.y += self.speed_y
+        if self.rect.y < 0 or self.rect.y > win_height or self.rect.x < 0 or self.rect.x > win_width:
             self.kill()
+
 
 class Enemy(GameSprite):
     # рух ворога
@@ -81,7 +113,7 @@ class Enemy(GameSprite):
             self.rect.y = 0
             # lost = lost + 1
 
-tur = Player(img_tur, (win_width - 120)//2, win_height - 157, 120, 120, 0)
+tur = GameSprite(img_tur, (win_width - 120)//2, win_height - 157, 120, 120, 0)
 tur1 = Player(img_tur1, (win_width - 100)//2, win_height - 148, 100, 100, 0)
 zombis = sprite.Group()
 for i in range(5):
@@ -96,6 +128,16 @@ while game:
     for e in event.get():
         if e.type == QUIT:
             game = False
+        if e.type == MOUSEBUTTONDOWN and e.button == 1:
+
+            if num_fire < 8 and rel_time == False:  # ⬅️
+                num_fire = num_fire + 1  # ⬅️
+                fire_sound.play()  # ⬅️ додали відступ
+                tur1.fire(15)  # ⬅️ додали відступ
+
+            if num_fire >= 8 and rel_time == False:  # якщо гравець зробив 5 пострілів⬅️
+                last_time = timer()  # засікаємо час, коли це сталося⬅️
+                rel_time = True  # ставимо прапор перезарядки⬅️
 
     if not finish:
         window.blit(background, (0, 0))
@@ -103,11 +145,34 @@ while game:
         tur.update()
         tur.reset()
 
+        bullets.update()
+        bullets.draw(window)
+
         tur1.update()
         tur1.reset()
 
         zombis.update()
         zombis.draw(window)
+
+        if rel_time == True:
+            now_time = timer()  # зчитуємо час
+
+            if now_time - last_time < 3:  # поки не минуло 3 секунди виводимо інформацію про перезарядку
+                reload = font2.render('Wait, reload...', 1, (150, 0, 0))
+                window.blit(reload, (260, 460))
+            else:
+                num_fire = 0  # обнулюємо лічильник куль
+                rel_time = False  # скидаємо прапор перезарядки
+
+
+        collides = sprite.groupcollide(zombis, bullets, True, True)
+        for c in collides:
+            # цей цикл повториться стільки разів, скільки монстрів збито
+            score = score + 1
+            zombi = Enemy(img_zombi, randint(80, win_width - 80),
+                            -40, 80, 50, randint(1, 5))
+            zombis.add(zombi)
+
 
     display.update()
     time.delay(60)
