@@ -112,13 +112,38 @@ class Enemy(GameSprite):
             self.rect.x = randint(80, win_width - 80)
             self.rect.y = 0
             # lost = lost + 1
+zombis = sprite.Group()
 
+class WaveManager:
+    def __init__(self):
+        self.wave_number = 1
+        self.zombies_per_wave = 5
+        self.zombies_remaining = self.zombies_per_wave
+
+    def next_wave(self):
+        self.wave_number += 1
+        self.zombies_per_wave = 5 + self.wave_number * 2  # щораз більше зомбі
+        self.zombies_remaining = self.zombies_per_wave
+        self.spawn_wave()
+
+    def spawn_wave(self):
+        for _ in range(self.zombies_per_wave):
+            zombi = Enemy(img_zombi, randint(80, win_width - 80), -40, 80, 50, randint(1, 5))
+            zombis.add(zombi)
+
+    def zombie_killed(self):
+        self.zombies_remaining -= 1
+        if self.zombies_remaining <= 0:
+            return True  # Хвиля завершена
+        return False
+
+
+wave_manager = WaveManager()
+wave_manager.spawn_wave()
 tur = GameSprite(img_tur, (win_width - 120)//2, win_height - 157, 120, 120, 0)
 tur1 = Player(img_tur1, (win_width - 100)//2, win_height - 148, 100, 100, 0)
-zombis = sprite.Group()
-for i in range(5):
-    zombi = Enemy(img_zombi, randint(80, win_width - 80), -40, 80, 50, randint(1, 5))
-    zombis.add(zombi)
+
+
 
 
 
@@ -129,6 +154,7 @@ while game:
         if e.type == QUIT:
             game = False
         if e.type == MOUSEBUTTONDOWN and e.button == 1:
+
 
             if num_fire < 8 and rel_time == False:  # ⬅️
                 num_fire = num_fire + 1  # ⬅️
@@ -141,6 +167,9 @@ while game:
 
     if not finish:
         window.blit(background, (0, 0))
+
+        wave_text = font2.render(f'Wave {wave_manager.wave_number}', True, (255, 255, 0))
+        window.blit(wave_text, (10, 10))
 
         tur.update()
         tur.reset()
@@ -167,11 +196,9 @@ while game:
 
         collides = sprite.groupcollide(zombis, bullets, True, True)
         for c in collides:
-            # цей цикл повториться стільки разів, скільки монстрів збито
-            score = score + 1
-            zombi = Enemy(img_zombi, randint(80, win_width - 80),
-                            -40, 80, 50, randint(1, 5))
-            zombis.add(zombi)
+            score += 1
+            if wave_manager.zombie_killed():
+                wave_manager.next_wave()
 
 
     display.update()
