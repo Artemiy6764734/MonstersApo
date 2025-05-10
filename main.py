@@ -30,14 +30,15 @@ win = font1.render('YOU WIN!', True, (255, 255, 255))
 lose = font1.render('YOU LOSE!', True, (180, 0, 0))
 emoji_font = font.SysFont("Segoe UI Emoji", 40)
 
-goal = 200
+goal = 100
 lvl2 = 20
 lvl3 = 50
 rel_time = False
 num_fire = 0
 life = 3
 score = 0
-
+lost = 0
+max_lost = 10
 
 class GameSprite(sprite.Sprite):
     def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
@@ -106,12 +107,14 @@ class Enemy(GameSprite):
     # рух ворога
     def update(self):
         self.rect.y += self.speed
-        global lost
+        global lost, life
+
         # зникає, якщо дійде до краю екрана
         if self.rect.y > win_height:
             self.rect.x = randint(80, win_width - 80)
             self.rect.y = 0
             # lost = lost + 1
+            life -= 1
 zombis = sprite.Group()
 
 class WaveManager:
@@ -168,7 +171,7 @@ while game:
     if not finish:
         window.blit(background, (0, 0))
 
-        wave_text = font2.render(f'Wave {wave_manager.wave_number}', True, (255, 255, 0))
+        wave_text = font2.render(f'Хвиля: {wave_manager.wave_number}', True, (255, 255, 0))
         window.blit(wave_text, (10, 10))
 
         tur.update()
@@ -187,7 +190,7 @@ while game:
             now_time = timer()  # зчитуємо час
 
             if now_time - last_time < 3:  # поки не минуло 3 секунди виводимо інформацію про перезарядку
-                reload = font2.render('Wait, reload...', 1, (150, 0, 0))
+                reload = font2.render('Перезарядка...', 1, (150, 0, 0))
                 window.blit(reload, (260, 460))
             else:
                 num_fire = 0  # обнулюємо лічильник куль
@@ -199,6 +202,24 @@ while game:
             score += 1
             if wave_manager.zombie_killed():
                 wave_manager.next_wave()
+
+        if life == 0 or lost >= max_lost:  # ⬅️⬅️
+            finish = True  # програли, ставимо тло і більше не керуємо спрайтами.
+            window.blit(lose, (200, 200))
+
+        # якщо спрайт торкнувся ворога зменшує життя⬅️⬅️⬅️⬅️
+        if sprite.spritecollide(tur1, zombis, False):
+            sprite.spritecollide(tur1, zombis, True)
+            life = life - 1
+
+        hearts = emoji_font.render('❤️' * life, True, (255, 100, 100))
+        window.blit(hearts, (win_width - 200, win_height - 50))
+
+
+        # перевірка виграшу: скільки очок набрали?
+        if score >= goal:
+            finish = True
+            window.blit(win, (200, 200))
 
 
     display.update()
