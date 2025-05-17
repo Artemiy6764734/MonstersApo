@@ -31,14 +31,14 @@ lose = font1.render('YOU LOSE!', True, (180, 0, 0))
 emoji_font = font.SysFont("Segoe UI Emoji", 40)
 
 goal = 100
-lvl2 = 20
-lvl3 = 50
 rel_time = False
 num_fire = 0
 life = 3
 score = 0
 lost = 0
 max_lost = 10
+rel_speed = 5
+bullets_count = 10
 
 class GameSprite(sprite.Sprite):
     def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
@@ -58,6 +58,10 @@ class GameSprite(sprite.Sprite):
 
 
 class Player(GameSprite):
+    def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
+        super().__init__(player_image, player_x, player_y, size_x, size_y, player_speed)
+        self.lvl = 1
+
     def update(self):
         # Отримуємо позицію миші
         mouse_x, mouse_y = mouse.get_pos()
@@ -94,6 +98,13 @@ class Player(GameSprite):
         bullets.add(bullet)
         fire_sound.play()
 
+    def lvl_up(self):
+        global rel_speed, bullets_count
+        self.lvl += 1
+        if rel_speed > 1:
+            rel_speed -= 1
+        bullets_count += 3
+
 
 class Bullet(GameSprite):
     def update(self):
@@ -124,6 +135,7 @@ class WaveManager:
         self.zombies_remaining = self.zombies_per_wave
 
     def next_wave(self):
+        tur1.lvl_up()
         self.wave_number += 1
         self.zombies_per_wave = 5 + self.wave_number * 2  # щораз більше зомбі
         self.zombies_remaining = self.zombies_per_wave
@@ -159,16 +171,17 @@ while game:
         if e.type == MOUSEBUTTONDOWN and e.button == 1:
 
 
-            if num_fire < 8 and rel_time == False:  # ⬅️
+            if num_fire < bullets_count and rel_time == False:  # ⬅️
                 num_fire = num_fire + 1  # ⬅️
                 fire_sound.play()  # ⬅️ додали відступ
                 tur1.fire(15)  # ⬅️ додали відступ
 
-            if num_fire >= 8 and rel_time == False:  # якщо гравець зробив 5 пострілів⬅️
+            if num_fire >= bullets_count and rel_time == False:  # якщо гравець зробив 5 пострілів⬅️
                 last_time = timer()  # засікаємо час, коли це сталося⬅️
                 rel_time = True  # ставимо прапор перезарядки⬅️
 
     if not finish:
+
         window.blit(background, (0, 0))
 
         wave_text = font2.render(f'Хвиля: {wave_manager.wave_number}', True, (255, 255, 0))
@@ -189,7 +202,7 @@ while game:
         if rel_time == True:
             now_time = timer()  # зчитуємо час
 
-            if now_time - last_time < 3:  # поки не минуло 3 секунди виводимо інформацію про перезарядку
+            if now_time - last_time < rel_speed:  # поки не минуло 3 секунди виводимо інформацію про перезарядку
                 reload = font2.render('Перезарядка...', 1, (150, 0, 0))
                 window.blit(reload, (260, 460))
             else:
@@ -211,10 +224,17 @@ while game:
         if sprite.spritecollide(tur1, zombis, False):
             sprite.spritecollide(tur1, zombis, True)
             life = life - 1
+            if wave_manager.zombie_killed():
+                wave_manager.next_wave()
 
         hearts = emoji_font.render('❤️' * life, True, (255, 100, 100))
         window.blit(hearts, (win_width - 200, win_height - 50))
 
+        lvls = font2.render('Лвл: ' + str(tur1.lvl), 1, (0, 0, 0))
+        window.blit(lvls, (80, win_height - 70))
+
+        mon_count = font2.render('Вбито зомбі:' + str(score), 1, (11, 151, 153))
+        window.blit(mon_count, (490, 10))
 
         # перевірка виграшу: скільки очок набрали?
         if score >= goal:
